@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F87 PRO 网页驱动</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e3e3e0; --shell:#f2f2f0; --card:#fbfbfa; --tile:#efefec; --tile2:#e6e6e3; --line:#e4e4e1;
+  --text:#121212; --muted:#6c6c69; --faint:#a2a29e; --ink:#111111;
+  --lime:#d6f34a; --lime-soft:#eef8c6; --lime-ink:#3c4a00;
+  --ok:#1f8f4e; --warn:#a86b00; --bad:#c2352f;
+  --shadow:0 1px 2px rgba(20,20,15,.04),0 10px 30px rgba(20,20,15,.05);
+  --r-card:26px; --r-tile:16px;
+  --sans:"Manrope",system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+button,select{font:inherit;color:inherit;cursor:pointer}
+button:disabled,select:disabled{cursor:not-allowed;opacity:.38}
+svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ───── 外框 + 顶栏 ───── */
+.app{max-width:1280px;margin:28px auto;background:var(--shell);border-radius:36px;padding:0 26px 30px;box-shadow:0 30px 80px rgba(20,20,15,.08)}
+header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:22px 0 18px;position:sticky;top:0;z-index:10;background:var(--shell);border-radius:36px 36px 0 0}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:13px;background:var(--ink);color:#fff;display:grid;place-items:center}
+.logo svg{width:22px;height:22px}
+.brand h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.2px}
+.brand small{display:block;color:var(--muted);font-size:12px;font-weight:500;margin-top:-1px}
+nav{display:flex;gap:4px;background:var(--card);padding:5px;border-radius:999px;box-shadow:var(--shadow)}
+nav button{position:relative;display:flex;align-items:center;gap:7px;border:0;background:transparent;padding:9px 20px;border-radius:999px;color:var(--muted);font-size:13.5px;font-weight:600}
+nav button:hover{color:var(--text)}
+nav button.on{background:var(--ink);color:#fff}
+nav button.dirty::after{content:"";position:absolute;top:7px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 2px var(--card)}
+nav button.on.dirty::after{box-shadow:0 0 0 2px var(--ink)}
+.right{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:999px;background:var(--card);font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;box-shadow:var(--shadow)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.chip.on{color:var(--text)} .chip.on .dot{background:var(--lime);box-shadow:0 0 0 3px rgba(214,243,74,.35)}
+.spacer{flex:1}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;background:var(--tile);padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:600;white-space:nowrap;transition:background .15s,transform .1s}
+.btn:hover:not(:disabled){background:var(--tile2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.primary:hover:not(:disabled){background:#000}
+.btn.lime{background:var(--lime);color:#111}
+.btn.danger{background:#fbe5e3;color:var(--bad)}
+.btn.danger:hover:not(:disabled){background:#f7d4d0}
+.btn.ghost{background:transparent}
+.btn.ghost:hover:not(:disabled){background:var(--tile)}
+.btn.small{padding:7px 13px;font-size:12.5px}
+.btn svg.ic{width:16px;height:16px}
+@media (max-width:860px){
+  .app{margin:0;border-radius:0;padding:0 14px 24px}
+  header{grid-template-columns:1fr auto;border-radius:0;padding:14px 0}
+  nav{grid-column:1/-1;grid-row:2;justify-content:stretch}
+  nav button{flex:1;justify-content:center;padding:9px 0}
+}
+/* 手机宽度：副标题和状态文字收起（状态只留圆点），给语言和连接按钮腾地方 */
+@media (max-width:560px){
+  .brand{gap:10px}
+  .brand h1{white-space:nowrap}
+  .brand small{display:none}
+  .right{gap:6px}
+  .chip{padding:9px 11px}
+  #statusText{display:none}
+  #btnLang{padding:7px 10px}
+  .right .btn.primary{padding:10px 14px}
+}
+
+main{display:flex;flex-direction:column;gap:18px}
+.page{display:grid;gap:18px;min-width:0}
+.banner{padding:13px 18px;border-radius:18px;font-size:13.5px;font-weight:500;display:none}
+.banner.show{display:block}
+.banner.warn{background:#fdf3d7;color:#7a5200}
+.banner.bad{background:#fbe5e3;color:#9b2520}
+.banner.ok{background:var(--lime-soft);color:var(--lime-ink)}
+
+/* ───── 卡片 ───── */
+.card{background:var(--card);border-radius:var(--r-card);padding:22px;min-width:0;box-shadow:var(--shadow)}
+.ch{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.ch .icb{width:40px;height:40px;border-radius:13px;background:var(--tile);display:grid;place-items:center;flex:none}
+.ch h2{font-size:15.5px;font-weight:700;margin:0;letter-spacing:.1px}
+.ch p{margin:1px 0 0;color:var(--muted);font-size:12.5px}
+.icb.lime{background:var(--lime)}
+.hint{font-size:12px;color:var(--faint);margin-top:12px;line-height:1.65}
+.dirty{font-size:12.5px;font-weight:600;color:var(--warn)}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:18px}
+
+/* 分段选择 */
+.seg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--tile);padding:4px;border-radius:14px}
+.seg button{border:0;background:transparent;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button:hover:not(:disabled){color:var(--text);background:rgba(255,255,255,.6)}
+.seg button.on,.seg button.on:hover:not(:disabled){background:var(--ink);color:#fff}
+.seg.wrap{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+.field{margin-bottom:20px}
+.field label{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px}
+.field label em{font-style:normal;color:var(--text);font-weight:700}
+.ends{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:5px;padding:0 4px}
+
+/* ───── 灯效页 ───── */
+#page-led{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1000px){#page-led{grid-template-columns:1fr}}
+.hero{position:relative;overflow:hidden;border-radius:30px;background:linear-gradient(155deg,#e6e6e3 0%,#d4d4d1 100%);padding:24px;min-height:400px;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.hero-top{display:flex;align-items:center;gap:10px;position:relative;z-index:2}
+.tag{display:inline-block;padding:5px 12px;border-radius:999px;background:var(--card);font-size:12px;font-weight:600}
+.tag:empty{display:none}
+.tag.draft{background:var(--lime)}
+.hero-top span{font-size:12.5px;color:var(--muted);font-weight:500}
+.hero h1{font-size:46px;line-height:1.1;margin:14px 0 6px;font-weight:600;letter-spacing:-1px;position:relative;z-index:2}
+.hero .desc{color:var(--muted);font-size:13.5px;margin:0;position:relative;z-index:2}
+.stats{display:flex;flex-direction:column;gap:10px;margin:22px 0 22px;position:relative;z-index:2;width:max-content}
+.stat{display:flex;align-items:center;gap:12px;padding:9px 16px 9px 9px;border-radius:18px;background:rgba(251,251,250,.62);backdrop-filter:blur(10px)}
+.stat .icb{width:38px;height:38px;border-radius:12px;background:var(--lime);display:grid;place-items:center}
+.stat small{display:block;font-size:11.5px;color:var(--muted);font-weight:500}
+.stat b{font-size:15px;font-weight:700}
+.kbbody{position:absolute;right:3%;top:20%;width:60%;padding:1.6%;border-radius:18px;background:linear-gradient(160deg,#2a2a2a,#121212);box-shadow:0 40px 60px -20px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06) inset;transform:perspective(1200px) rotateX(22deg) rotateZ(-7deg);z-index:1}
+.gkb{position:relative;aspect-ratio:18.25/6.25}
+.gkb i{position:absolute}
+.gkb i::before{content:"";position:absolute;inset:6%;border-radius:4px;background:color-mix(in srgb,var(--glow) calc(var(--lvl)*62%),#1d1d1d);box-shadow:0 0 calc(var(--lvl)*14px) color-mix(in srgb,var(--glow) calc(var(--lvl)*70%),transparent),inset 0 -2px 0 rgba(0,0,0,.35);transition:background .3s,box-shadow .3s}
+.hero-bar{margin-top:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 10px 10px 14px;border-radius:22px;background:rgba(251,251,250,.78);backdrop-filter:blur(12px);position:relative;z-index:2}
+.dots{display:flex;padding-left:8px}
+.dots i{width:26px;height:26px;border-radius:50%;margin-left:-8px;border:2px solid #fbfbfa}
+.hero-bar .t b{display:block;font-size:13px}
+.hero-bar .t small{color:var(--muted);font-size:11.5px}
+@media (max-width:640px){
+  .hero{min-height:0}
+  .hero h1{font-size:36px}
+  .kbbody{position:relative;right:auto;top:auto;width:100%;margin:22px 0 18px;transform:perspective(900px) rotateX(18deg)}
+  .stats{flex-direction:row;flex-wrap:wrap;width:auto}
+}
+
+.effects{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.fx{position:relative;text-align:left;border:0;background:var(--tile);border-radius:var(--r-tile);padding:13px 14px 12px;transition:background .15s,transform .15s}
+.fx:hover:not(:disabled){background:var(--tile2)}
+.fx .no{font-size:11px;color:var(--faint);font-weight:600}
+.fx .nm{font-size:14px;font-weight:700;margin-top:2px}
+.fx .bar{height:4px;border-radius:2px;margin-top:12px;background:rgba(0,0,0,.08);overflow:hidden}
+.fx .bar i{display:block;height:100%;border-radius:2px}
+.fx.sel{background:var(--ink);color:#fff}
+.fx.sel .no{color:#8d8d89}
+.fx.sel .bar{background:rgba(255,255,255,.14)}
+.fx .badge{position:absolute;top:10px;right:10px;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--lime);color:#111}
+
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid var(--card);padding:0;box-shadow:0 0 0 1px var(--line);transition:transform .12s}
+.sw.on{box-shadow:0 0 0 2px var(--ink)}
+.sw:hover:not(:disabled){transform:scale(1.08)}
+.fixed{font-size:12.5px;color:var(--faint);padding:8px 0}
+.palette{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.pc{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11.5px;color:var(--faint);font-weight:600}
+.pc input{width:100%;max-width:44px;aspect-ratio:1;height:auto;padding:0;border:0;border-radius:13px;background:var(--tile);cursor:pointer}
+.pc input:disabled{cursor:not-allowed;opacity:.4}
+.pc input::-webkit-color-swatch-wrapper{padding:4px}
+.pc input::-webkit-color-swatch{border:0;border-radius:9px}
+.pc.chg span{color:var(--warn)}
+
+/* ───── 按键页 ───── */
+.kbhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.tabs{display:flex;gap:4px;background:var(--tile);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;padding:8px 16px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{background:var(--ink);color:#fff}
+.tabs button small{font-size:11px;font-weight:500;opacity:.65}
+.tabs button i{font-style:normal;font-size:11px;background:var(--lime);color:#111;border-radius:9px;padding:0 6px;font-weight:700}
+.tabs button i:empty{display:none}
+.kbwrap{overflow-x:auto;padding:14px;background:var(--tile);border-radius:22px}
+.kbd{position:relative;aspect-ratio:18.25/6.25;min-width:640px;container-type:inline-size}
+.key{position:absolute;padding:2px;border:0;background:none;text-align:left}
+.key .cap{position:absolute;inset:2px;display:flex;flex-direction:column;justify-content:space-between;padding:5% 7%;border-radius:9px;background:linear-gradient(#ffffff,#f6f6f4);box-shadow:0 1px 0 rgba(0,0,0,.04),0 3px 0 #d9d9d5;overflow:hidden;transition:background .12s,transform .08s,box-shadow .12s}
+.key small{font-size:clamp(8px,.78cqw,11px);color:var(--faint);font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.key b{font-size:clamp(9px,1.02cqw,14px);font-weight:700;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;margin-top:auto}
+.key:hover:not(:disabled) .cap{background:#fff;box-shadow:0 1px 0 rgba(0,0,0,.04),0 3px 0 #cfcfcb,0 0 0 1px #d5d5d1}
+.key:active:not(:disabled) .cap{transform:translateY(2px);box-shadow:0 1px 0 #d9d9d5}
+.key.empty b{color:var(--faint);font-weight:500}
+.key.changed .cap{background:linear-gradient(#f4fbd9,#eaf6bd);box-shadow:0 3px 0 #cfe08a}
+.key.changed b{color:var(--lime-ink)}
+.key.pending .cap{background:var(--lime);box-shadow:0 3px 0 #a9c51e}
+.key.pending b,.key.pending small{color:#111}
+.key.locked .cap{opacity:.5}
+.key.locked .cap::after{content:"🔒";position:absolute;top:4%;right:6%;font-size:clamp(7px,.7cqw,10px);opacity:.6}
+.key.sel .cap{background:var(--ink);box-shadow:0 3px 0 #000,0 8px 18px rgba(0,0,0,.25)}
+.key.sel b{color:#fff} .key.sel small{color:#8d8d89}
+.key:disabled{cursor:default}
+.kbmsg{text-align:center;color:var(--faint);padding:30px 0 6px;font-size:13px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:14px;font-weight:500}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:14px;border-radius:5px;background:#fff;box-shadow:0 0 0 1px var(--line)}
+.legend i.c{background:#eaf6bd;box-shadow:none}
+.legend i.p{background:var(--lime);box-shadow:none}
+.legend i.s{background:var(--ink);box-shadow:none}
+
+.ke-empty{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-size:13.5px;padding:18px 0}
+.ke-top{display:flex;gap:16px 24px;align-items:flex-start;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.ke-name{display:flex;align-items:center;gap:12px}
+.ke-name .cap1{min-width:52px;height:52px;padding:0 12px;border-radius:15px;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:18px;font-weight:700}
+.ke-name span{font-size:12px;font-weight:600;color:var(--muted);background:var(--tile);padding:3px 10px;border-radius:999px}
+.ke-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;flex:1;min-width:220px;margin:0}
+.ke-facts dt{color:var(--faint);font-weight:500}
+.ke-facts dd{margin:0;word-break:break-all;font-weight:600}
+.ke-facts dd.p{color:var(--lime-ink);background:var(--lime-soft);justify-self:start;padding:0 8px;border-radius:6px}
+.ke-facts .raw{font-family:var(--mono);font-size:11.5px;color:var(--faint);font-weight:400}
+.ke-btns{display:flex;gap:8px;flex-wrap:wrap}
+.ke-lock{padding:16px 18px;border-radius:var(--r-tile);background:var(--tile);color:var(--muted);font-size:13px}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.cats button{border:0;background:var(--tile);padding:8px 15px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted)}
+.cats button:hover{color:var(--text);background:var(--tile2)}
+.cats button.on{background:var(--ink);color:#fff}
+.rec{border:1.5px dashed #cfcfcb;border-radius:20px;padding:22px 18px;text-align:center;cursor:pointer;background:var(--tile);transition:border-color .15s,background .15s;outline:none}
+.rec:hover{border-color:var(--ink)}
+.rec.on{border-style:solid;border-color:#b9d62a;background:var(--lime-soft);box-shadow:0 0 0 4px rgba(214,243,74,.35)}
+.rec.off{pointer-events:none;opacity:.45}
+.rec b{display:block;font-size:15px;font-weight:700}
+.rec.on b{color:var(--lime-ink);font-family:var(--mono)}
+.rec span{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+.manual{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.manual h3{font-size:12.5px;color:var(--muted);font-weight:600;margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip-btn{border:0;background:var(--tile);padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.chip-btn:hover:not(:disabled){color:var(--text)}
+.chip-btn.on{background:var(--ink);color:#fff}
+.manual-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+select{background:var(--tile);border:0;border-radius:12px;padding:9px 12px;min-width:200px;font-weight:600}
+.preview{font-size:12.5px;color:var(--muted)}
+.preview b{color:var(--text)}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.opt{border:0;background:var(--tile);padding:12px 14px;border-radius:var(--r-tile);text-align:left;font-size:13px;font-weight:600;transition:background .12s}
+.opt:hover:not(:disabled){background:var(--tile2)}
+.opt.more{background:transparent;box-shadow:inset 0 0 0 1.5px var(--tile2)}
+.opt.on{background:var(--ink);color:#fff}
+
+/* ───── 设置页 ───── */
+#page-settings{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+#page-settings .wide{grid-column:span 2}
+@media (max-width:1000px){#page-settings{grid-template-columns:1fr}#page-settings .wide{grid-column:auto}}
+.cfg-btns{display:flex;gap:8px;flex-wrap:wrap}
+.dark{background:var(--ink);color:#fff}
+.dark .ch p,.dark .hint{color:#8d8d89}
+.dark .icb{background:#262626}
+.dark .icb.lime{background:var(--lime)}
+dl.info{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;margin:0;font-size:13px;padding:16px;border-radius:18px;background:#1d1d1d}
+dl.info dt{color:#8d8d89}
+dl.info dd{margin:0;word-break:break-all;font-weight:600}
+dl.info .mono{font-family:var(--mono);font-size:12.5px}
+.backups{display:flex;flex-direction:column;gap:6px;max-height:380px;overflow:auto}
+.bk{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 12px;border-radius:14px;background:var(--tile);font-size:12.5px}
+.bk .t{flex:1;min-width:0}
+.bk .t div:first-child{font-weight:600}
+.bk .t div:last-child{color:var(--faint);font-size:11.5px}
+.bk .btn.small{background:var(--card)}
+.bk .tag{padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap;background:var(--card);color:var(--muted)}
+.bk .tag.led{background:var(--lime-soft);color:var(--lime-ink)}
+.bk .tag.rgb{background:#f6e3f6;color:#7d2a7d}
+.bk .tag.layer{background:#e1ebfb;color:#1f4b8f}
+.empty{color:var(--faint);font-size:12.5px}
+
+details.logs summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600}
+.log{margin-top:12px;font-family:var(--mono);font-size:11.5px;max-height:240px;overflow:auto;background:var(--tile);border-radius:14px;padding:12px;white-space:pre-wrap;word-break:break-all}
+.foot{text-align:center;color:var(--faint);font-size:12px;margin:22px 0 0;line-height:1.7}
+.log .tx{color:#2f5fb3} .log .rx{color:#1f8f4e} .log .err{color:var(--bad)} .log .ok{color:var(--ok)} .log .info{color:var(--muted)}
+
+.overlay{position:fixed;inset:0;background:rgba(242,242,240,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:20}
+.overlay.show{display:flex}
+.overlay div{background:var(--card);padding:16px 24px;border-radius:18px;font-size:14px;font-weight:600;box-shadow:0 20px 50px rgba(0,0,0,.12)}
+
+dialog{background:var(--card);color:var(--text);border:0;border-radius:26px;padding:26px;width:min(480px,calc(100vw - 32px));box-shadow:0 30px 80px rgba(0,0,0,.2)}
+dialog::backdrop{background:rgba(30,30,28,.35);backdrop-filter:blur(2px)}
+dialog h3{margin:0 0 10px;font-size:18px;font-weight:700}
+dialog p{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+dialog ul{margin:0 0 16px;padding:12px 14px 12px 32px;font-size:13px;line-height:1.85;background:var(--tile);border-radius:16px}
+dialog li.grp{font-weight:700}
+dialog li.grp ul{font-weight:500;color:var(--muted);margin:0;padding:0 0 0 18px;background:none}
+dialog .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#7a5200;background:#fdf3d7;border-radius:14px;padding:11px 13px;margin-bottom:16px;cursor:pointer}
+dialog .check input{margin-top:3px}
+dialog .dlg-btns{display:flex;justify-content:flex-end;gap:8px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></symbol>
+  <symbol id="i-kb" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M8 16h8"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4M3.3 19a10 10 0 1 1 17.4 0"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.7l5.7 5.6a8 8 0 1 1-11.3 0z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 22a10 10 0 1 1 10-10c0 3-2.5 4-4.5 4H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15.5" cy="7.5" r="1"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15l3 3 3-3"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M12 2v14M8 6l4-4 4 4M7 11v2a5 5 0 0 0 10 0v-2M12 18v4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-log" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+</svg>
+
+<div class="app">
+<header>
+  <div class="brand">
+    <div class="logo"><svg class="ic"><use href="#i-kb"/></svg></div>
+    <div><h1>AULA F87 PRO</h1><small data-i18n="brand.sub">非官方网页驱动</small></div>
+  </div>
+  <nav id="nav">
+    <button data-page="led"><svg class="ic"><use href="#i-bulb"/></svg><span data-i18n="nav.led">灯效</span></button>
+    <button data-page="keys"><svg class="ic"><use href="#i-kb"/></svg><span data-i18n="nav.keys">按键</span></button>
+    <button data-page="settings"><svg class="ic"><use href="#i-sliders"/></svg><span data-i18n="nav.settings">设置</span></button>
+  </nav>
+  <div class="right">
+    <span id="status" class="chip"><span class="dot"></span><span id="statusText">未连接</span></span>
+    <button id="btnLang" class="btn ghost small" title="中文 / English">English</button>
+    <button id="btnConnect" class="btn primary">连接键盘</button>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner"></div>
+
+  <!-- ───────────── 灯效 ───────────── -->
+  <div class="page" id="page-led">
+    <section class="hero">
+      <div class="hero-top"><span id="heroTag" class="tag"></span><span id="edNo"></span></div>
+      <h1 id="edName">—</h1>
+      <p id="edDesc" class="desc"></p>
+      <div class="stats">
+        <div class="stat"><span class="icb"><svg class="ic"><use href="#i-sun"/></svg></span><div><small data-i18n="w.brightness">亮度</small><b id="heroBr">—</b></div></div>
+        <div class="stat"><span class="icb"><svg class="ic"><use href="#i-gauge"/></svg></span><div><small data-i18n="w.speed">速度</small><b id="heroSp">—</b></div></div>
+        <div class="stat"><span class="icb"><svg class="ic"><use href="#i-drop"/></svg></span><div><small data-i18n="w.color">颜色</small><b id="heroCo">—</b></div></div>
+      </div>
+      <div class="kbbody" aria-hidden="true"><div id="heroKb" class="gkb"></div></div>
+      <div class="hero-bar">
+        <div id="heroDots" class="dots"></div>
+        <div class="t"><b data-i18n="hero.palette">调色板 7 色</b><small data-i18n="hero.paletteHint">所有灯效共用，在「调色板」卡片里修改</small></div>
+        <span class="spacer"></span>
+        <span id="dirty" class="dirty"></span>
+        <button id="btnDiscard" class="btn ghost small" disabled data-i18n="btn.discard">放弃修改</button>
+        <button id="btnApply" class="btn primary" disabled><span data-i18n="btn.apply">应用到键盘</span> <svg class="ic"><use href="#i-arrow"/></svg></button>
+      </div>
+    </section>
+
+    <section class="card editor">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-spark"/></svg></span><div><h2 data-i18n="ed.title">灯效参数</h2><p data-i18n="ed.sub">改的是上面这个灯效</p></div></div>
+      <div class="field">
+        <label><span data-i18n="w.brightness">亮度</span> <em id="brVal">—</em></label>
+        <div class="seg" id="brSeg"></div>
+        <div class="ends"><span data-i18n="ed.dim">暗（0 可能是灯灭）</span><span data-i18n="ed.bright">亮</span></div>
+      </div>
+      <div class="field" id="spField">
+        <label><span data-i18n="w.speed">速度</span> <em id="spVal">—</em></label>
+        <div class="seg" id="spSeg"></div>
+        <div class="ends"><span data-i18n="ed.slow">慢</span><span data-i18n="ed.fast">快</span></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label><span data-i18n="w.color">颜色</span> <em id="coVal">—</em></label>
+        <div id="coBox"></div>
+      </div>
+      <div class="hint" data-i18n="ed.hint">应用时会先重新读取键盘，自动备份当前灯效，只改动灯效相关的字节，写入后再读回核对。</div>
+    </section>
+
+    <section class="card">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-grid"/></svg></span><div><h2 data-i18n="fx.title">灯效</h2><p data-i18n="fx.sub">点选一个灯效，它会成为键盘的当前灯效</p></div></div>
+      <div id="effects" class="effects"></div>
+    </section>
+
+    <section class="card">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-palette"/></svg></span><div><h2 data-i18n="pal.title">调色板</h2><p data-i18n="pal.sub">颜色 0–6，所有灯效共用</p></div></div>
+      <div id="palette" class="palette"></div>
+      <div class="actions">
+        <button id="btnPalApply" class="btn primary small" disabled data-i18n="pal.apply">应用颜色</button>
+        <button id="btnPalDiscard" class="btn ghost small" disabled data-i18n="pal.discard">放弃</button>
+        <button id="btnPalFactory" class="btn small" disabled data-i18n="pal.factory">恢复出厂颜色</button>
+        <span id="palDirty" class="dirty"></span>
+      </div>
+      <div class="hint" data-i18n="pal.hint">在键盘上按 Fn+Delete 切换颜色时，循环的就是这 7 种颜色（再加多彩）。写入前同样会自动备份并读回核对。</div>
+    </section>
+  </div>
+
+  <!-- ───────────── 按键 ───────────── -->
+  <div class="page" id="page-keys" hidden>
+    <section class="card">
+      <div class="kbhead">
+        <div class="tabs" id="layerTabs">
+          <button data-layer="0"><span data-i18n="layer.0">默认层</span> <i></i></button>
+          <button data-layer="1"><span data-i18n="layer.1">FN1 层</span> <small data-i18n="keys.fnHold">按住 Fn 时</small> <i></i></button>
+        </div>
+        <span class="spacer"></span>
+        <span id="keyDirty" class="dirty"></span>
+        <button id="btnKeyDiscard" class="btn ghost small" disabled data-i18n="btn.discard">放弃修改</button>
+        <button id="btnKeyApply" class="btn primary" disabled><span data-i18n="btn.apply">应用到键盘</span> <svg class="ic"><use href="#i-arrow"/></svg></button>
+      </div>
+      <div class="kbwrap"><div class="kbd" id="kbd"></div></div>
+      <div id="kbLoading" class="kbmsg">连接键盘后显示按键</div>
+      <div class="legend">
+        <span><i class="c"></i><span data-i18n="lg.changed">和出厂不同</span></span>
+        <span><i class="p"></i><span data-i18n="lg.pending">改了还没应用</span></span>
+        <span><i class="s"></i><span data-i18n="lg.sel">选中</span></span>
+        <span data-i18n="lg.locked">🔒 不能改</span>
+        <span style="color:var(--faint)" data-i18n="lg.inherit">灰字：FN1 层里没设功能，按 Fn+这个键 = 默认层的功能</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="keEmpty" class="ke-empty"><svg class="ic"><use href="#i-kb"/></svg><span data-i18n="ke.empty">点上面键盘图里的一个键，给它换一个功能。</span></div>
+      <div id="keBody" hidden>
+        <div class="ke-top">
+          <div class="ke-name"><b id="keName" class="cap1"></b><span id="keLayer"></span></div>
+          <dl class="ke-facts">
+            <dt data-i18n="ke.now">键盘里现在</dt><dd id="keNow"></dd>
+            <dt data-i18n="ke.factory">出厂</dt><dd id="keFactory"></dd>
+            <dt id="kePendingRow" data-i18n="ke.pending">改成</dt><dd id="kePending" class="p"></dd>
+            <dt></dt><dd id="keRaw" class="raw"></dd>
+          </dl>
+          <div class="ke-btns">
+            <button id="btnKeyUndo" class="btn small" data-i18n="ke.undo">撤销这个键的修改</button>
+            <button id="btnKeyFactory" class="btn small" data-i18n="ke.reset">恢复这个键的出厂功能</button>
+          </div>
+        </div>
+        <div id="keLock" class="ke-lock" hidden></div>
+        <div id="kePick">
+          <div class="cats" id="catTabs">
+            <button data-cat="key" data-i18n="cat.key">键盘按键</button>
+            <button data-cat="mouse" data-i18n="cat.mouse">鼠标</button>
+            <button data-cat="media" data-i18n="cat.media">多媒体</button>
+            <button data-cat="cmd" data-i18n="cat.cmd">常用命令</button>
+            <button data-cat="light" data-i18n="cat.light">灯光控制</button>
+          </div>
+          <div id="panelKey">
+            <div id="recBox" class="rec" tabindex="0"><b id="recMain"></b><span id="recSub"></span></div>
+            <div class="manual">
+              <h3 data-i18n="man.title">手动选择（浏览器拦不住的键，例如 Win 键、Ctrl+Alt+Del）</h3>
+              <div id="modChips" class="chips"></div>
+              <div class="manual-row">
+                <select id="hidSel"></select>
+                <span class="preview"><span data-i18n="man.result">结果：</span><b id="manualPreview">—</b></span>
+                <button id="btnManual" class="btn small primary" data-i18n="man.set">设为这个</button>
+              </div>
+            </div>
+          </div>
+          <div id="panelList" hidden>
+            <div id="optList" class="opts"></div>
+            <button id="btnMore" class="btn small ghost" style="margin-top:10px"></button>
+          </div>
+        </div>
+        <div class="hint" data-i18n="ke.hint">改动先存在草稿里（键帽变成黄绿色），点上面的「应用到键盘」才会写入。写入前会自动备份这一层，只改按键对应的位置，写完读回核对。宏和 FN2 层网页版不提供。</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ───────────── 设置 ───────────── -->
+  <div class="page" id="page-settings" hidden>
+    <section class="card editor wide">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-moon"/></svg></span><div><h2 data-i18n="set.title">键盘设置</h2><p data-i18n="set.sub">休眠和防抖</p></div></div>
+      <div class="field">
+        <label><span data-i18n="set.sleep">休眠时间</span> <em id="sleepVal">—</em></label>
+        <div class="seg wrap" id="sleepSeg"></div>
+        <div class="hint" style="margin-top:6px" data-i18n="set.sleepHint">无线模式下，键盘空闲指定时间后进入休眠。</div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label><span data-i18n="w.debounce">防抖</span> <em id="debVal">—</em></label>
+        <div class="seg" id="debSeg"></div>
+        <div class="ends"><span data-i18n="set.fast">反应快</span><span data-i18n="set.safe">更不容易连击</span></div>
+      </div>
+      <div class="actions">
+        <button id="btnSetApply" class="btn primary" disabled><span data-i18n="btn.apply">应用到键盘</span> <svg class="ic"><use href="#i-arrow"/></svg></button>
+        <button id="btnSetDiscard" class="btn ghost small" disabled data-i18n="btn.discard">放弃修改</button>
+        <span id="setDirty" class="dirty"></span>
+      </div>
+    </section>
+
+    <section class="card dark">
+      <div class="ch"><span class="icb lime" style="color:#111"><svg class="ic"><use href="#i-usb"/></svg></span><div><h2 data-i18n="dev.title">设备信息</h2><p data-i18n="dev.sub">只支持有线连接</p></div></div>
+      <dl class="info">
+        <dt data-i18n="dev.name">设备</dt><dd id="devName">未连接</dd>
+        <dt data-i18n="dev.mode">连接</dt><dd id="devMode">—</dd>
+        <dt data-i18n="dev.psd">指纹</dt><dd id="devPsd" class="mono">—</dd>
+      </dl>
+      <div class="hint" data-i18n="dev.hint">改设置要插数据线（2.4G 无线暂不支持）。键盘要在 Windows 模式（Fn+W），否则不响应。浏览器选择框里键盘显示为 “Gaming Keyboard”。</div>
+    </section>
+
+    <section class="card">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-file"/></svg></span><div><h2 data-i18n="cfg.title">配置文件</h2><p data-i18n="cfg.sub">整套设置存成文件，随时导回</p></div></div>
+      <div class="cfg-btns">
+        <button id="btnExport" class="btn primary" disabled data-i18n="cfg.export">导出配置</button>
+        <button id="btnImport" class="btn" disabled data-i18n="cfg.import">导入配置…</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <div class="hint" data-i18n="cfg.hint">包含灯效、调色板、防抖、休眠，以及默认层和 FN1 层的按键。导入前会先列出要改的内容让你确认。</div>
+    </section>
+
+    <section class="card">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-reset"/></svg></span><div><h2 data-i18n="fr.title">恢复出厂设置</h2><p data-i18n="fr.sub">会先自动备份，需要二次确认</p></div></div>
+      <button id="btnFactory" class="btn danger" disabled data-i18n="fr.btn">恢复出厂设置…</button>
+      <div class="hint" data-i18n="fr.hint">灯效、调色板、防抖、休眠、默认层和 FN1 层按键全部改回出厂值。</div>
+    </section>
+
+    <section class="card">
+      <div class="ch"><span class="icb"><svg class="ic"><use href="#i-clock"/></svg></span><div><h2 data-i18n="bk.title">备份</h2><p data-i18n="bk.sub">每次写入前自动保存，最多 30 条</p></div></div>
+      <div id="backups" class="backups"></div>
+      <div style="margin-top:12px"><button id="btnExportAll" class="btn small" disabled data-i18n="bk.exportAll">全部导出 JSON</button></div>
+    </section>
+  </div>
+
+  <details class="logs card">
+    <summary data-i18n="log.title">通信日志</summary>
+    <div id="log" class="log"></div>
+  </details>
+</main>
+<p class="foot" data-i18n="foot">非官方项目，与 AULA 没有任何关系。写入键盘有一定风险，请自行承担；每次写入前都会自动备份。</p>
+</div>
+
+<div id="overlay" class="overlay"><div id="overlayText" data-i18n="busy.writing">正在写入…</div></div>
+
+<dialog id="dialog">
+  <form method="dialog">
+    <h3 id="dlgTitle"></h3>
+    <p id="dlgText"></p>
+    <ul id="dlgList"></ul>
+    <label id="dlgCheck" class="check" hidden><input type="checkbox"><span id="dlgCheckText"></span></label>
+    <div class="dlg-btns">
+      <button value="cancel" class="btn ghost" data-i18n="dlg.cancel">取消</button>
+      <button id="dlgOk" value="ok" class="btn primary" data-i18n="dlg.ok">确定</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F87 PRO 探针</title>
+<style>
+:root{
+  --bg:#0e1014; --panel:#161920; --panel2:#1c2029; --line:#262b36; --text:#e6e8ee; --muted:#8a91a3;
+  --accent:#4f8cff; --accent2:#2d5fd1; --ok:#3ecf8e; --warn:#f5b142; --bad:#ff5d5d; --key:#20242e; --keyHi:#2a3a5c;
+  --mono: ui-monospace, "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.3px}
+header h1 small{color:var(--muted);font-weight:400;margin-left:8px;font-size:12px}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:var(--muted)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip.on .dot{background:var(--ok)} .chip.on{color:var(--text)}
+.chip.ro{color:var(--ok);border-color:#24533f}
+button{font:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:7px 14px;border-radius:8px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover:not(:disabled){background:var(--accent2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+main{max-width:1280px;margin:0 auto;padding:20px 24px 40px;display:grid;gap:16px;grid-template-columns:320px 1fr}
+@media (max-width:980px){main{grid-template-columns:1fr;padding:16px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.card h2{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:8px;font-weight:650}
+.card h2 .tag{font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);word-break:break-all}
+.muted{color:var(--muted)} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.mono{font-family:var(--mono)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500}
+td.mono{font-size:12px}
+.hex{display:grid;grid-template-columns:44px repeat(16,1fr);gap:2px;font-family:var(--mono);font-size:12px}
+.hex .addr{color:var(--muted)}
+.hex .b{text-align:center;padding:2px 0;border-radius:4px;background:var(--panel2);cursor:default}
+.hex .b.z{color:#4d5466}
+.hex .b.k{background:#1f3357;color:#cfe0ff}
+.hex .b.sig{background:#1d4434;color:#bff2d8}
+.hex .b.chg{outline:2px solid var(--bad);outline-offset:-2px}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin:8px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{padding:5px 12px;font-size:13px}
+.tabs button.act{background:var(--accent);border-color:var(--accent);color:#fff}
+.kb{width:100%;height:auto;display:block}
+.kb .k rect{fill:var(--key);stroke:#323846;stroke-width:1}
+.kb .k.diff rect{fill:var(--keyHi);stroke:var(--accent)}
+.kb .k.none rect{fill:#191c23;stroke:#2a2f3a;stroke-dasharray:3 2}
+.kb .k:hover rect{stroke:#fff}
+.kb .k text{fill:var(--text);font-size:9px;font-family:system-ui,"Microsoft YaHei",sans-serif;pointer-events:none}
+.kb .k text.n{fill:var(--muted);font-size:7px}
+.detail{min-height:44px;margin-top:10px;padding:8px 12px;border-radius:8px;background:var(--panel2);font-size:13px}
+.log{font-family:var(--mono);font-size:11.5px;max-height:260px;overflow:auto;background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:8px;white-space:pre-wrap;word-break:break-all}
+.log .tx{color:#8fb4ff} .log .rx{color:#7fe0b0} .log .er{color:var(--bad)} .log .in{color:var(--muted)}
+.note{font-size:12.5px;color:var(--muted);background:var(--panel2);border-radius:8px;padding:10px 12px;border-left:3px solid var(--warn)}
+.banner{grid-column:1/-1;padding:12px 16px;border-radius:10px;border:1px solid #5a4417;background:#2a2112;color:#f5d38f;font-size:13px}
+.full{grid-column:1/-1}
+.effects td:nth-child(n+3){font-family:var(--mono)}
+</style>
+</head>
+<body>
+<header>
+  <h1>AULA F87 PRO 协议探针<small>只读 · WebHID</small></h1>
+  <span class="chip ro">● 只读模式：不发送任何写入命令</span>
+  <span class="spacer"></span>
+  <span id="status" class="chip"><span class="dot"></span><span id="statusText">未连接</span></span>
+  <button id="btnConnect" class="primary">连接键盘</button>
+  <button id="btnReadAll" disabled>全部读取</button>
+  <button id="btnExport" disabled>导出 JSON</button>
+</header>
+
+<main>
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="col">
+    <section class="card">
+      <h2>设备</h2>
+      <dl class="kv" id="devInfo"><dt>状态</dt><dd class="muted">请点击“连接键盘”</dd></dl>
+      <div class="note" style="margin-top:12px">
+        需要用桌面版 Chrome 或 Edge 打开。<br>
+        有线：选择 <span class="mono">258A:010C</span>；2.4G：选择 <span class="mono">3554:FA09</span>（无线读取是实验功能）。<br>
+        如果读取没有响应，先按 <b>FN+W</b> 切到 Windows 模式。
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>指纹 Psd <span class="tag">cmd 0x82</span></h2>
+      <div class="row"><button id="btnPsd" disabled>读取指纹</button></div>
+      <dl class="kv" id="psdInfo" style="margin-top:12px"></dl>
+    </section>
+
+    <section class="card">
+      <h2>HID 集合</h2>
+      <div id="collections" class="muted" style="font-size:12.5px">连接后显示</div>
+      <div id="featProbe" style="margin-top:10px"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <h2>灯效 / 全局配置块 <span class="tag">cmd 0x84 · 128 字节</span></h2>
+      <div class="row"><button id="btnLed" disabled>读取灯效块</button><span id="ledSig" class="muted"></span></div>
+      <div id="ledDecoded" style="margin-top:12px"></div>
+      <div class="legend"><span><i style="background:#1f3357"></i>已知字段</span><span><i style="background:#1d4434"></i>签名 5A A5</span><span>鼠标悬停看偏移和含义</span></div>
+      <div id="ledHex" class="hex"></div>
+    </section>
+
+    <section class="card">
+      <h2>颜色表 <span class="tag">cmd 0x8A · 512 字节 · 只读</span></h2>
+      <div class="row"><button id="btnRgb" disabled>读取颜色表</button><span id="rgbSig" class="muted"></span></div>
+      <div class="note" style="margin-top:10px">布局（2026-10-27 实机确认）：每段 21 字节 = 7 种颜色 × RGB，第 0 段空着，第 n 段 = UI 序号 n 的灯效；0x1FA/0x1FB 是 5A A5。出厂时第 1–13 段是红绿蓝黄品红青白。</div>
+      <div id="rgbDecoded" style="margin-top:12px"></div>
+    </section>
+
+    <section class="card">
+      <h2>按键矩阵 <span class="tag">cmd 0x83 · 每层 128 × 4 字节</span></h2>
+      <div class="row" style="margin-bottom:12px"><button id="btnMatrix" disabled>读取 4 层矩阵</button><span class="muted" style="font-size:12.5px">高亮的键 = 和第 0 层的默认键值不一样</span></div>
+      <div class="tabs" id="layerTabs"></div>
+      <svg id="kb" class="kb" viewBox="-4 -4 738 258"></svg>
+      <div class="detail" id="keyDetail"><span class="muted">鼠标移到按键上查看原始 4 字节和解码结果</span></div>
+      <div id="extraSlots" style="margin-top:12px"></div>
+    </section>
+  </div>
+
+  <section class="card full">
+    <h2>通信日志</h2>
+    <div class="row" style="margin-bottom:8px"><button id="btnClearLog">清空</button></div>
+    <div id="log" class="log"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+// ───────────────────────── 常量（来自 OemDrv.exe 逆向） ─────────────────────────
+const WIRED  = { vendorId: 0x258A, productId: 0x010C, usagePage: 0xFF00, usage: 0x01 };
+const DONGLE = { vendorId: 0x3554, productId: 0xFA09, usagePage: 0xFF02, usage: 0x02 };
+const WIRED_RID = 0x06, WL_RID = 0x13;
+// 只读白名单：任何不在这里的命令都会被拒绝发送
+const READ_ONLY_WIRED = new Set([0x82, 0x83, 0x84, 0x8A]);
+const READ_ONLY_WL    = new Set([0x41, 0x44]);
+
+const PSD_TABLE = [
+  { name: 'AULA F87 PRO',       psd: [0x03,0x00,0x00,0x00,0x01,0x0B] },
+  { name: 'AULA F87 PRO Wired', psd: [0x03,0x00,0x00,0x00,0x00,0xA9] },
+  { name: 'AULA F87',           psd: [0x03,0x00,0x00,0x00,0x01,0x8F] },
+];
+
+// 灯效：LedOpt 顺序（UI 序号, 名称, 硬件编号）
+const EFFECTS = [
+  [1,'常亮',1],[2,'呼吸',3],[3,'彩虹',2],[4,'流星',19],[5,'雨滴',15],[6,'彩虹轮',13],
+  [7,'涟漪',20],[8,'繁星',16],[9,'消逝',18],[10,'贪吃蛇',5],[11,'霓虹流光',7],[12,'触发',17],
+  [13,'正弦波',12],[14,'随从扫描',8],[15,'旋转风车',28],[16,'彩色瀑布',30],[17,'绽放',14],[18,'旋转风暴',29],[21,'(UI 21)',0],
+];
+const HW_EFFECT = Object.fromEntries(EFFECTS.map(e => [e[2], e[1]]));
+const COLORS = ['红','绿','蓝','黄','品红','青','白','彩色'];
+
+const LED_FIELDS = {
+  0x03: '防抖：硬件值 0–4，界面显示“值+1 档” ✅', 0x09: '是否为“自定义（按键颜色组）”灯效 ✅', 0x0A: '当前灯效 UI 序号 ✅', 0x0B: '配置/灯效偏移 🟡',
+  0x16: '官方默认写 0，网页版不改 ✅', 0x17: 'F87 PRO 上官方不碰 ✅', 0x18: '休眠时间（×30 秒）✅', 0x1A: '滚轮模式 🟡',
+  0x1B: 'CfgVal 强制写 0x00 ✅', 0x38: '固定 FF ✅', 0x39: '固定 FF ✅',
+};
+const EFFECT_SLOTS = 34; // 0x3A..0x7D，每槽 2 字节
+// 槽 i 对应 UI 序号 i+1 的灯效（实测：霓虹流光 UI 11 → 槽 10）
+const slotName = i => { const e = EFFECTS.find(x => x[0] === i + 1); return e ? e[1] : '—'; };
+for (let i = 0; i < EFFECT_SLOTS; i++) {
+  LED_FIELDS[0x3A + 2*i] = `槽 ${i}「${slotName(i)}」：亮度 0–4（4 最亮）✅`;
+  LED_FIELDS[0x3B + 2*i] = `槽 ${i}「${slotName(i)}」：速度 << 4 | 颜色 ✅`;
+}
+
+// 键盘布局（单位 = 1u），矩阵索引来自 KB.ini [KEY]
+const MATRIX = {"Esc":0,"F1":12,"F2":18,"F3":24,"F4":30,"F5":36,"F6":42,"F7":48,"F8":54,"F9":60,"F10":66,"F11":72,"F12":78,"`":1,"1":7,"2":13,"3":19,"4":25,"5":31,"6":37,"7":43,"8":49,"9":55,"0":61,"-":67,"=":73,"Backspace":79,"PrtSc":84,"ScrLk":90,"Pause":96,"Tab":2,"Q":8,"W":14,"E":20,"R":26,"T":32,"Y":38,"U":44,"I":50,"O":56,"P":62,"[":68,"]":74,"\\":80,"Delete":86,"Insert":85,"Home":91,"PgUp":97,"CapsLock":3,"A":9,"S":15,"D":21,"F":27,"G":33,"H":39,"J":45,"K":51,"L":57,";":63,"'":69,"Enter":81,"End":92,"PgDn":98,"LShift":4,"Z":10,"X":16,"C":22,"V":28,"B":34,"N":40,"M":46,",":52,".":58,"/":64,"RShift":82,"Up":94,"RCtrl":83,"LCtrl":5,"LWin":11,"LAlt":17,"Space":35,"RAlt":53,"FN":59,"App":65,"Left":89,"Down":95,"Right":101};
+const LAYOUT = (() => {
+  const L = [];
+  const put = (names, x, y, w = 1) => { for (const n of names) { L.push([n, x, y, w]); x += w; } return x; };
+  put(['Esc'], 0, 0); put(['F1','F2','F3','F4'], 2, 0); put(['F5','F6','F7','F8'], 6.5, 0); put(['F9','F10','F11','F12'], 11, 0);
+  put(['PrtSc','ScrLk','Pause'], 15.25, 0);
+  let x = put(['`','1','2','3','4','5','6','7','8','9','0','-','='], 0, 1.25); put(['Backspace'], x, 1.25, 2);
+  put(['Insert','Home','PgUp'], 15.25, 1.25);
+  x = put(['Tab'], 0, 2.25, 1.5); x = put(['Q','W','E','R','T','Y','U','I','O','P','[',']'], x, 2.25); put(['\\'], x, 2.25, 1.5);
+  put(['Delete','End','PgDn'], 15.25, 2.25);
+  x = put(['CapsLock'], 0, 3.25, 1.75); x = put(['A','S','D','F','G','H','J','K','L',';',"'"], x, 3.25); put(['Enter'], x, 3.25, 2.25);
+  x = put(['LShift'], 0, 4.25, 2.25); x = put(['Z','X','C','V','B','N','M',',','.','/'], x, 4.25); put(['RShift'], x, 4.25, 2.75);
+  put(['Up'], 16.25, 4.25);
+  x = put(['LCtrl','LWin','LAlt'], 0, 5.25, 1.25); x = put(['Space'], x, 5.25, 6.25); put(['RAlt','FN','App','RCtrl'], x, 5.25, 1.25);
+  put(['Left','Down','Right'], 15.25, 5.25);
+  return L;
+})();
+
+// HID 键盘用法码 → 名称
+const HID = (() => {
+  const m = {};
+  for (let i = 0; i < 26; i++) m[0x04 + i] = String.fromCharCode(65 + i);
+  '1234567890'.split('').forEach((c, i) => m[0x1E + i] = c);
+  Object.assign(m, {0x28:'Enter',0x29:'Esc',0x2A:'Backspace',0x2B:'Tab',0x2C:'Space',0x2D:'-',0x2E:'=',0x2F:'[',0x30:']',0x31:'\\',0x32:'#',0x33:';',0x34:"'",0x35:'`',0x36:',',0x37:'.',0x38:'/',0x39:'Caps',
+    0x46:'PrtSc',0x47:'ScrLk',0x48:'Pause',0x49:'Ins',0x4A:'Home',0x4B:'PgUp',0x4C:'Del',0x4D:'End',0x4E:'PgDn',0x4F:'→',0x50:'←',0x51:'↓',0x52:'↑',0x53:'NumLk',
+    0x54:'KP/',0x55:'KP*',0x56:'KP-',0x57:'KP+',0x58:'KPEnter',0x63:'KP.',0x64:'\\|',0x65:'App',
+    0xE0:'LCtrl',0xE1:'LShift',0xE2:'LAlt',0xE3:'LWin',0xE4:'RCtrl',0xE5:'RShift',0xE6:'RAlt',0xE7:'RWin'});
+  for (let i = 0; i < 12; i++) m[0x3A + i] = 'F' + (i + 1);
+  for (let i = 0; i < 12; i++) m[0x68 + i] = 'F' + (i + 13);
+  for (let i = 0; i < 9; i++) m[0x59 + i] = 'KP' + (i + 1);
+  m[0x62] = 'KP0';
+  return m;
+})();
+const CONSUMER = {0xCD:'播放/暂停',0xB5:'下一曲',0xB6:'上一曲',0xB7:'停止',0xE2:'静音',0xE9:'音量+',0xEA:'音量-',0x6F:'亮度+',0x70:'亮度-',
+  0x183:'媒体播放器',0x18A:'邮件',0x192:'计算器',0x194:'我的电脑',0x223:'主页',0x22A:'收藏夹'};
+const MODS = ['Ctrl','Shift','Alt','Win','RCtrl','RShift','RAlt','RWin'];
+
+// ───────────────────────── 工具 ─────────────────────────
+const $ = id => document.getElementById(id);
+const hex = (b, sep = ' ') => Array.from(b, v => v.toString(16).padStart(2, '0').toUpperCase()).join(sep);
+const h2 = v => '0x' + v.toString(16).padStart(2, '0').toUpperCase();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function log(kind, msg) {
+  const el = $('log');
+  const line = document.createElement('div');
+  line.className = kind;
+  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false }) + '.' + String(Date.now() % 1000).padStart(3, '0');
+  line.textContent = `[${t}] ${({tx:'TX',rx:'RX',er:'ERR',in:'···'})[kind] || kind} ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ───────────────────────── 状态 ─────────────────────────
+const state = { dev: null, mode: null, psd: null, led: null, rgb: null, rgbLen: null, layers: [null, null, null, null], demo: false };
+let lastReplyData = 0; // 最近一次有线回复里实际带回的数据字节数
+let busy = false;
+
+function setStatus(text, on) {
+  $('statusText').textContent = text;
+  $('status').classList.toggle('on', !!on);
+}
+function setButtons() {
+  const ready = !!state.dev && !busy;
+  for (const id of ['btnLed', 'btnMatrix', 'btnReadAll']) $(id).disabled = !ready;
+  $('btnPsd').disabled = !ready || state.mode !== 'wired';
+  $('btnRgb').disabled = !ready || state.mode !== 'wired';
+  $('btnExport').disabled = !(state.psd || state.led || state.rgb || state.layers.some(Boolean));
+}
+async function guarded(fn) {
+  if (busy) return;
+  busy = true; setButtons();
+  try { await fn(); }
+  catch (e) { log('er', e.message || String(e)); console.error(e); }
+  finally { busy = false; setButtons(); }
+}
+
+// ───────────────────────── 有线：Feature Report 0x06 ─────────────────────────
+function featureBytes(dv, cmd) {
+  let b = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+  // 回复长度不固定（灯效块只有 136 字节），但回复头会回显命令号：
+  // b[1] === cmd 说明 byte0 是报告 ID，去掉它之后数据从下标 7 开始
+  if (b[0] === WIRED_RID && b[1] === cmd) b = b.subarray(1);
+  else if (b[0] !== cmd) log('er', `回复头没有回显命令号 ${h2(cmd)}：${hex(b.subarray(0, 8))}，数据位置可能不对`);
+  return b;
+}
+async function wiredRead(cmd, sub, len) {
+  if (!READ_ONLY_WIRED.has(cmd)) throw new Error(`拒绝发送非只读命令 ${h2(cmd)}`);
+  const out = new Uint8Array(len);
+  const pkts = Math.ceil(len / 512);
+  for (let i = 0; i < pkts; i++) {
+    const chunk = Math.min(512, len - i * 512);
+    const f = new Uint8Array(519);           // 不含 Report ID
+    f[0] = cmd; f[1] = sub; f[2] = 0; f[3] = pkts; f[4] = i; f[5] = chunk & 0xFF; f[6] = chunk >> 8;
+    await sleep(20);
+    log('tx', `F06 ${hex(f.subarray(0, 8))} …(请求 ${h2(cmd)} sub=${sub} 包 ${i + 1}/${pkts} 长度 ${chunk})`);
+    await state.dev.sendFeatureReport(WIRED_RID, f);
+    await sleep(20);
+    const dv = await state.dev.receiveFeatureReport(WIRED_RID);
+    const r = featureBytes(dv, cmd);
+    log('rx', `F06 原始长度=${dv.byteLength} 头 ${hex(r.subarray(0, 7))} 数据 ${hex(r.subarray(7, 7 + Math.min(chunk, 24)))}${chunk > 24 ? ' …' : ''}`);
+    lastReplyData = Math.max(0, r.length - 7);
+    if (r.length < 7 + chunk) log('er', `回复只有 ${r.length - 7} 字节数据，少于请求的 ${chunk} 字节`);
+    out.set(r.subarray(7, 7 + chunk), i * 512);
+  }
+  return out;
+}
+
+// ───────────────────────── 无线：Output/Input Report 0x13 ─────────────────────────
+let rxQueue = [], rxWaiter = null;
+function onInputReport(e) {
+  if (e.reportId !== WL_RID) return;
+  const b = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
+  const sum = (WL_RID + b.subarray(0, 18).reduce((a, v) => a + v, 0)) & 0xFF;
+  log('rx', `R13 ${hex(b)}${sum === b[18] ? '' : '  ⚠ 校验和不符'}`);
+  if (rxWaiter) { const w = rxWaiter; rxWaiter = null; w(b); } else rxQueue.push(b);
+}
+function nextReport(ms) {
+  if (rxQueue.length) return Promise.resolve(rxQueue.shift());
+  return new Promise(res => {
+    const t = setTimeout(() => { rxWaiter = null; res(null); }, ms);
+    rxWaiter = b => { clearTimeout(t); res(b); };
+  });
+}
+async function wirelessRead(cmd, sub, len) {
+  if (!READ_ONLY_WL.has(cmd)) throw new Error(`拒绝发送非只读命令 ${h2(cmd)}`);
+  const out = new Uint8Array(len);
+  let got = 0, timeouts = 0, requests = 0;
+  while (got < len) {
+    if (++requests > 120) throw new Error('无线读取请求次数过多，已停止');
+    rxQueue = [];
+    const f = new Uint8Array(19);              // 不含 Report ID
+    f[0] = cmd; f[1] = 1; f[3] = (sub << 4) & 0xFF;
+    f[18] = (WL_RID + f.subarray(0, 18).reduce((a, v) => a + v, 0)) & 0xFF;
+    log('tx', `R13 ${hex(f)}  (请求 ${h2(cmd)} sub=${sub}，已收 ${got}/${len})`);
+    await state.dev.sendReport(WL_RID, f);
+    let prevIdx = -1, misses = 0;
+    for (;;) {
+      const r = await nextReport(1000);
+      if (!r) { if (++timeouts > 2) throw new Error(`无线读取超时（${h2(cmd)}）`); break; }
+      if (r[0] !== cmd) { if (++misses >= 20) throw new Error('收到的命令号一直不匹配'); continue; }
+      if (r[1] & 0x80) throw new Error(`设备返回错误标志：${hex(r.subarray(0, 4))}`);
+      const idx = r[1] & 0x7F, last = r[2];
+      if (idx === prevIdx) continue;
+      prevIdx = idx;
+      const n = Math.min(r[3] & 0x0F, 14);
+      if (got + n <= len) out.set(r.subarray(4, 4 + n), got);
+      got += n;
+      if (idx === last + 1 || got >= len) break;
+    }
+  }
+  return out;
+}
+
+const readCmd = (wiredCmd, wlCmd, sub, len) =>
+  state.mode === 'wired' ? wiredRead(wiredCmd, sub, len) : wirelessRead(wlCmd, sub, len);
+
+// ───────────────────────── 连接 ─────────────────────────
+function pickMode(dev) {
+  for (const c of dev.collections) {
+    if (c.usagePage === 0xFF00 && c.usage === 0x01 && c.featureReports.some(r => r.reportId === WIRED_RID)) return 'wired';
+    if (c.usagePage === 0xFF02 && c.usage === 0x02 && c.outputReports.some(r => r.reportId === WL_RID)) return 'wireless';
+  }
+  return null;
+}
+function reportSize(r) {
+  return Math.ceil((r.items || []).reduce((a, it) => a + (it.reportSize || 0) * (it.reportCount || 0), 0) / 8);
+}
+function renderDevice() {
+  const d = state.dev;
+  const modeTxt = state.mode === 'wired' ? '<span class="ok">有线（Feature 0x06）</span>'
+    : state.mode === 'wireless' ? '<span class="warn">2.4G 接收器（Report 0x13，实验）</span>' : '<span class="bad">未识别</span>';
+  $('devInfo').innerHTML = `
+    <dt>名称</dt><dd>${esc(d.productName || '—')}</dd>
+    <dt>VID:PID</dt><dd>${d.vendorId.toString(16).padStart(4,'0').toUpperCase()}:${d.productId.toString(16).padStart(4,'0').toUpperCase()}</dd>
+    <dt>通道</dt><dd>${modeTxt}</dd>
+    <dt>已打开</dt><dd>${d.opened ? '是' : '否'}</dd>`;
+  const rows = [];
+  for (const c of d.collections) {
+    const fmt = (arr) => arr.map(r => `${h2(r.reportId)}(${reportSize(r)}B)`).join(' ') || '—';
+    rows.push(`<tr><td class="mono">${c.usagePage.toString(16).toUpperCase().padStart(4,'0')}/${c.usage.toString(16).toUpperCase().padStart(2,'0')}</td>
+      <td class="mono">${fmt(c.inputReports)}</td><td class="mono">${fmt(c.outputReports)}</td><td class="mono">${fmt(c.featureReports)}</td></tr>`);
+  }
+  $('collections').innerHTML = rows.length
+    ? `<table><tr><th>Page/Usage</th><th>Input</th><th>Output</th><th>Feature</th></tr>${rows.join('')}</table>`
+    : '没有可见的集合';
+  // 无线：接收器的 Feature 报告（只做 GetFeature）
+  const feats = [];
+  if (state.mode === 'wireless') for (const c of d.collections) for (const r of c.featureReports) feats.push(r.reportId);
+  $('featProbe').innerHTML = feats.length
+    ? `<div class="row">${feats.map(id => `<button data-feat="${id}">GetFeature ${h2(id)}</button>`).join('')}</div>
+       <div class="muted" style="font-size:12px;margin-top:6px">接收器的 FF04 集合，可能是接收器状态/指纹（只读）</div>` : '';
+  for (const b of $('featProbe').querySelectorAll('button[data-feat]')) {
+    b.onclick = () => guarded(async () => {
+      const id = +b.dataset.feat;
+      log('tx', `GetFeature ${h2(id)}`);
+      const dv = await state.dev.receiveFeatureReport(id);
+      log('rx', `F${id.toString(16).padStart(2,'0')} ${hex(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength))}`);
+    });
+  }
+}
+
+async function useDevice(dev) {
+  if (state.dev && state.dev !== dev) { try { await state.dev.close(); } catch {} }
+  state.dev = dev;
+  state.mode = pickMode(dev);
+  if (!dev.opened) await dev.open();
+  dev.removeEventListener('inputreport', onInputReport);
+  dev.addEventListener('inputreport', onInputReport);
+  log('in', `已打开 ${dev.productName}，通道：${state.mode || '未识别'}`);
+  setStatus(state.mode === 'wired' ? '已连接 · 有线' : state.mode === 'wireless' ? '已连接 · 2.4G' : '已连接 · 未识别', true);
+  $('banner').hidden = state.mode !== null;
+  if (!state.mode) $('banner').textContent = '这个设备上没有找到驱动通信用的集合（有线需要 FF00/01 + Feature 0x06，2.4G 需要 FF02/02 + Output 0x13）。请在弹窗里选另一项。';
+  renderDevice();
+  setButtons();
+}
+
+async function connect() {
+  if (!('hid' in navigator)) {
+    $('banner').hidden = false;
+    $('banner').textContent = '这个浏览器不支持 WebHID。请用桌面版 Chrome 或 Edge，并通过 localhost 或 https 打开本页。';
+    return;
+  }
+  const devs = await navigator.hid.requestDevice({ filters: [WIRED, DONGLE] });
+  if (!devs.length) return;
+  await useDevice(devs.find(d => pickMode(d)) || devs[0]);
+}
+
+// ───────────────────────── 读取 + 显示 ─────────────────────────
+async function readPsd() {
+  const b = await wiredRead(0x82, 1, 6);
+  state.psd = b;
+  renderPsd();
+}
+function renderPsd() {
+  const b = state.psd;
+  const hit = PSD_TABLE.find(p => p.psd.every((v, i) => v === b[i]));
+  $('psdInfo').innerHTML = `<dt>读到</dt><dd>${hex(b)}</dd><dt>匹配</dt><dd>${hit ? `<span class="ok">${esc(hit.name)}</span>` : '<span class="bad">不在已知列表里</span>'}</dd>`;
+}
+
+async function readLed() {
+  const b = await readCmd(0x84, 0x44, 0, 128);
+  state.prevLed = state.led;
+  state.led = b;
+  if (state.prevLed) {
+    const ch = [];
+    for (let i = 0; i < 128; i++) if (state.prevLed[i] !== b[i]) ch.push(`0x${i.toString(16).padStart(2,'0').toUpperCase()}: ${h2(state.prevLed[i])}→${h2(b[i])}`);
+    log('in', ch.length ? `和上次读取相比变化了 ${ch.length} 个字节：${ch.join('，')}` : '和上次读取相比没有变化');
+  }
+  renderLed();
+}
+function renderLed() {
+  const b = state.led, prev = state.prevLed;
+  const sigOk = b[0x7E] === 0x5A && b[0x7F] === 0xA5;
+  $('ledSig').innerHTML = sigOk ? '<span class="ok">✓ 签名 5A A5 正确</span>' : `<span class="bad">✗ 签名不对（${hex(b.subarray(0x7E))}），数据可能无效</span>`;
+  let html = '';
+  for (let i = 0; i < 128; i++) {
+    if (i % 16 === 0) html += `<div class="addr">${i.toString(16).padStart(2,'0').toUpperCase()}</div>`;
+    const chg = prev && prev[i] !== b[i];
+    const cls = (i >= 0x7E ? 'sig' : (LED_FIELDS[i] ? 'k' : (b[i] === 0 ? 'z' : ''))) + (chg ? ' chg' : '');
+    const tip = `0x${i.toString(16).padStart(2,'0').toUpperCase()} = ${b[i]} (${h2(b[i])})${chg ? `，上次是 ${h2(prev[i])}` : ''}${LED_FIELDS[i] ? ' · ' + LED_FIELDS[i] : ''}`;
+    html += `<div class="b ${cls}" title="${esc(tip)}">${b[i].toString(16).padStart(2,'0').toUpperCase()}</div>`;
+  }
+  $('ledHex').innerHTML = html;
+
+  const cur = b[0x0A];
+  const ui = EFFECTS.find(e => e[0] === cur);
+  const effRows = [];
+  for (let i = 0; i < EFFECT_SLOTS; i++) {
+    const A = b[0x3A + 2*i], B = b[0x3B + 2*i];
+    const chg = prev && (prev[0x3A + 2*i] !== A || prev[0x3B + 2*i] !== B);
+    const isCur = i + 1 === cur;
+    effRows.push(`<tr${chg ? ' style="background:#3a1f24"' : isCur ? ' style="background:#1f2c45"' : ''}><td>${i}</td><td>${esc(slotName(i))}${isCur ? ' <span class="ok">◀ 当前</span>' : ''}</td><td>0x${(0x3A + 2*i).toString(16).toUpperCase()}</td>
+      <td>${A}</td><td>${B >> 4}</td><td>${B & 0x0F}${COLORS[B & 0x0F] ? ' · ' + COLORS[B & 0x0F] : ''}</td></tr>`);
+  }
+  $('ledDecoded').innerHTML = `
+    <dl class="kv">
+      <dt>当前灯效 (0x0A)</dt><dd>${cur} → 「${esc(ui ? ui[1] : '未知')}」✅</dd>
+      <dt>休眠 (0x18)</dt><dd>${b[0x18]} → ${b[0x18] * 30} 秒 ✅</dd>
+      <dt>防抖 (0x03)</dt><dd>${b[3]} → ${b[3] + 1} 档 ✅</dd>
+      <dt>其他</dt><dd>0x09=${h2(b[9])} 0x0B=${h2(b[0x0B])} 0x16=${h2(b[0x16])} 0x17=${h2(b[0x17])} 0x1A=${h2(b[0x1A])} 0x1B=${h2(b[0x1B])}</dd>
+    </dl>
+    <details style="margin-top:10px"><summary class="muted" style="cursor:pointer">灯效参数槽（0x3A 起，每槽 2 字节，槽 i = UI 序号 i+1，红色 = 和上次读取不同）</summary>
+      <table class="effects" style="margin-top:8px"><tr><th>槽</th><th>灯效</th><th>偏移</th><th>亮度</th><th>速度</th><th>颜色</th></tr>${effRows.join('')}</table>
+    </details>`;
+}
+
+// 颜色表（cmd 0x8A）：官方程序从不读取；实机确认读回格式和官方写入（0x0A，512 字节）一致
+const RGB_LEN = 0x200, RGB_SEG = 0x15, RGB_SIG = 0x1FA;
+async function readRgb() {
+  const b = await wiredRead(0x8A, 0, RGB_LEN);
+  state.prevRgb = state.rgb;
+  state.rgb = b;
+  state.rgbLen = Math.min(lastReplyData, RGB_LEN);
+  if (state.prevRgb) {
+    const ch = [];
+    for (let i = 0; i < RGB_LEN; i++) if (state.prevRgb[i] !== b[i]) ch.push(`0x${i.toString(16).toUpperCase()}`);
+    log('in', ch.length ? `颜色表和上次相比变化了 ${ch.length} 个字节：${ch.join(' ')}` : '颜色表和上次相比没有变化');
+  }
+  renderRgb();
+}
+function renderRgb() {
+  const b = state.rgb, prev = state.prevRgb;
+  const sigOk = b[RGB_SIG] === 0x5A && b[RGB_SIG + 1] === 0xA5;
+  const where = [];
+  for (let i = 0; i + 1 < RGB_LEN; i++) if (b[i] === 0x5A && b[i + 1] === 0xA5) where.push('0x' + i.toString(16).toUpperCase());
+  $('rgbSig').innerHTML = `回复带回 ${state.rgbLen} 字节 · ` + (sigOk ? '<span class="ok">✓ 0x1FA 处是 5A A5</span>'
+    : `<span class="warn">0x1FA 处不是 5A A5${where.length ? `（5A A5 出现在 ${where.join(' ')}）` : ''}</span>`);
+  if (!b.some(Boolean)) { $('rgbDecoded').innerHTML = '<span class="warn">读到的全是 0：键盘可能不支持读取颜色表</span>'; return; }
+  const rows = [];
+  for (let n = 0; (n + 1) * RGB_SEG <= RGB_LEN; n++) {
+    const seg = b.subarray(n * RGB_SEG, (n + 1) * RGB_SEG);
+    const chg = prev && prev.subarray(n * RGB_SEG, (n + 1) * RGB_SEG).some((v, i) => v !== seg[i]);
+    const e = EFFECTS.find(x => x[0] === n);
+    const sw = [];
+    for (let c = 0; c < 7; c++) {
+      const [r, g, bl] = seg.subarray(c * 3, c * 3 + 3);
+      sw.push(`<span title="颜色 ${c}：${hex([r, g, bl])}" style="display:inline-block;width:18px;height:18px;border-radius:4px;border:1px solid #444;vertical-align:middle;background:rgb(${r},${g},${bl})"></span>`);
+    }
+    rows.push(`<tr${chg ? ' style="background:#3a1f24"' : ''}><td>${n}</td><td>${n === 0 ? '（空段）' : esc(e ? e[1] : '—')}</td><td>0x${(n * RGB_SEG).toString(16).toUpperCase()}</td><td>${sw.join(' ')}</td><td class="mono">${hex(seg)}</td></tr>`);
+  }
+  const tail = b.subarray(Math.floor(RGB_LEN / RGB_SEG) * RGB_SEG);
+  $('rgbDecoded').innerHTML = `
+    <table class="effects"><tr><th>段</th><th>对应的灯效</th><th>偏移</th><th>颜色 0–6</th><th>原始</th></tr>${rows.join('')}</table>
+    <div class="muted mono" style="font-size:12px;margin-top:6px">最后 ${tail.length} 字节：${hex(tail)}</div>`;
+}
+
+async function readMatrix() {
+  for (let layer = 0; layer < 4; layer++) {
+    try {
+      state.layers[layer] = await readCmd(0x83, 0x41, layer, 512);
+      log('in', `第 ${layer} 层读取完成`);
+    } catch (e) {
+      log('er', `第 ${layer} 层读取失败：${e.message}`);
+    }
+    renderTabs();
+    if (layer === curLayer || !state.layers[curLayer]) renderKeyboard();
+  }
+}
+
+function slot(layer, idx) {
+  const b = state.layers[layer];
+  return b ? b.subarray(idx * 4, idx * 4 + 4) : null;
+}
+function decodeKey(c) {
+  const [t, a, k2, k1] = c;
+  if (!t && !a && !k2 && !k1) return { short: '—', long: '空 / 禁用', kind: 'none' };
+  if (t === 0x00) {
+    const mods = MODS.filter((_, i) => a & (1 << i));
+    const keys = [k1, k2].filter(Boolean).map(v => HID[v] || h2(v));
+    const s = [...mods, ...keys].join('+');
+    return { short: s, long: `键盘：${s}`, kind: 'key' };
+  }
+  if (t === 0x01) return { short: '鼠标', long: `鼠标功能（按键/参数 ${hex(c.subarray(1))}）🟡`, kind: 'mouse' };
+  if (t === 0x02) { const u = (k2 << 8) | k1; return { short: CONSUMER[u] || 'M' + u.toString(16), long: `多媒体：用法码 0x${u.toString(16).toUpperCase()} ${CONSUMER[u] || ''}`, kind: 'media' }; }
+  if (t === 0x03) return { short: '宏' + k1, long: `宏 #${k1}，循环模式 ${a}，次数 ${k2}`, kind: 'macro' };
+  if (t === 0x0D) return { short: 'Fn' + (a + 1), long: `Fn${a + 1} 键`, kind: 'fn' };
+  if (t === 0x08) return { short: '灯光', long: `灯光控制 ${hex(c)} 🟡`, kind: 'led' };
+  if (t === 0x07) return { short: '功能' + k1, long: `键盘内置功能 ${hex(c)} 🟡`, kind: 'fx' };
+  return { short: h2(t), long: `未知类型 ${hex(c)}`, kind: 'raw' };
+}
+
+let curLayer = 0;
+function renderTabs() {
+  const names = ['第 0 层', '第 1 层', '第 2 层', '第 3 层'];
+  $('layerTabs').innerHTML = names.map((n, i) =>
+    `<button data-l="${i}" class="${i === curLayer ? 'act' : ''}">${n}${state.layers[i] ? '' : ' · 未读'}</button>`).join('');
+  for (const b of $('layerTabs').querySelectorAll('button')) b.onclick = () => { curLayer = +b.dataset.l; renderTabs(); renderKeyboard(); };
+}
+function renderKeyboard() {
+  const U = 40, P = 2;
+  let svg = '';
+  for (const [name, x, y, w] of LAYOUT) {
+    const idx = MATRIX[name];
+    const c = slot(curLayer, idx);
+    const d = c ? decodeKey(c) : { short: '', kind: 'none' };
+    const base = slot(0, idx);
+    const diff = c && curLayer !== 0 && base && hex(base) !== hex(c) && d.kind !== 'none';
+    const label = d.short.length > 9 ? d.short.slice(0, 8) + '…' : d.short;
+    svg += `<g class="k ${diff ? 'diff' : ''} ${c && d.kind === 'none' ? 'none' : ''}" data-n="${esc(name)}">
+      <rect x="${x*U+P}" y="${y*U+P}" width="${w*U-2*P}" height="${U-2*P}" rx="5"/>
+      <text class="n" x="${x*U+P+4}" y="${y*U+P+10}">${esc(name)}</text>
+      <text x="${x*U+P+4}" y="${y*U+U-P-7}">${esc(label)}</text></g>`;
+  }
+  $('kb').innerHTML = svg;
+  for (const g of $('kb').querySelectorAll('g.k')) {
+    g.onmouseenter = () => {
+      const name = g.dataset.n, idx = MATRIX[name], c = slot(curLayer, idx);
+      $('keyDetail').innerHTML = c
+        ? `<b>${esc(name)}</b> · 矩阵槽位 ${idx} · 第 ${curLayer} 层 · 原始 <span class="mono">${hex(c)}</span> · ${esc(decodeKey(c).long)}`
+        : `<b>${esc(name)}</b> · 矩阵槽位 ${idx} · <span class="muted">这一层还没读取</span>`;
+    };
+  }
+  renderExtraSlots();
+}
+function renderExtraSlots() {
+  const b = state.layers[curLayer];
+  if (!b) { $('extraSlots').innerHTML = ''; return; }
+  const used = new Set(Object.values(MATRIX));
+  const rows = [];
+  for (let i = 0; i < 128; i++) {
+    if (used.has(i)) continue;
+    const c = b.subarray(i * 4, i * 4 + 4);
+    const sig = i === 127 && c[2] === 0x5A && c[3] === 0xA5;
+    if (c.some(Boolean)) rows.push(`<tr><td>${i}</td><td class="mono">${hex(c)}</td><td>${sig ? '矩阵结尾签名 5A A5 ✅' : esc(decodeKey(c).long)}</td></tr>`);
+  }
+  $('extraSlots').innerHTML = rows.length
+    ? `<details><summary class="muted" style="cursor:pointer">没有对应物理键、但有内容的槽位：${rows.length} 个</summary>
+       <table style="margin-top:8px"><tr><th>槽位</th><th>原始</th><th>解码</th></tr>${rows.join('')}</table></details>`
+    : '<span class="muted" style="font-size:12.5px">其余槽位全部为 0</span>';
+}
+
+function exportJson() {
+  const d = state.dev;
+  const data = {
+    tool: 'F87 PRO 协议探针', time: new Date().toISOString(), demo: state.demo,
+    device: d ? { name: d.productName, vid: d.vendorId, pid: d.productId } : null, mode: state.mode,
+    psd: state.psd && hex(state.psd), led: state.led && hex(state.led),
+    rgb: state.rgb && hex(state.rgb), rgbReplyLength: state.rgbLen,
+    layers: state.layers.map(l => l && hex(l)),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: `f87pro-dump-${Date.now()}.json` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ───────────────────────── 演示数据（?demo=1，仅用于检查界面） ─────────────────────────
+function loadDemo() {
+  state.demo = true; state.mode = 'wired';
+  $('banner').hidden = false;
+  $('banner').textContent = '演示模式：下面是假数据，只用来检查界面，没有连接任何设备。';
+  state.psd = new Uint8Array([0x03,0,0,0,0x01,0x0B]);
+  const led = new Uint8Array(128);
+  led[0x0A] = 11; led[0x18] = 10; led[0x38] = 0xFF; led[0x39] = 0xFF; led[0x7E] = 0x5A; led[0x7F] = 0xA5;
+  for (let i = 0; i < 19; i++) { led[0x3A + 2*i] = 4; led[0x3B + 2*i] = (2 << 4) | 7; }
+  state.led = led;
+  const rgb = new Uint8Array(RGB_LEN);
+  const pal = [[255,0,0],[0,255,0],[0,0,255],[255,255,0],[255,0,255],[0,255,255],[255,255,255]];
+  for (let n = 1; n <= 14; n++) pal.forEach((c, i) => rgb.set(c, n * RGB_SEG + i * 3));
+  rgb[RGB_SIG] = 0x5A; rgb[RGB_SIG + 1] = 0xA5;
+  state.rgb = rgb; state.rgbLen = RGB_LEN;
+  const NAME2HID = Object.fromEntries(Object.entries(HID).map(([k, v]) => [v, +k]));
+  const alias = { Backspace:'Backspace', CapsLock:'Caps', LShift:'LShift', RShift:'RShift', LCtrl:'LCtrl', RCtrl:'RCtrl', LAlt:'LAlt', RAlt:'RAlt', LWin:'LWin',
+    Insert:'Ins', Delete:'Del', Up:'↑', Down:'↓', Left:'←', Right:'→', ScrLk:'ScrLk' };
+  for (let l = 0; l < 4; l++) {
+    const m = new Uint8Array(512);
+    for (const [name, idx] of Object.entries(MATRIX)) {
+      if (name === 'FN') { m.set([0x0D, 0, 0, 0], idx * 4); continue; }
+      const u = NAME2HID[alias[name] || name];
+      if (l === 0 && u) m.set([0, 0, 0, u], idx * 4);
+    }
+    if (l === 1) { m.set([0x02, 0, 0, 0x70], MATRIX.F1 * 4); m.set([0x02, 0, 0, 0xCD], MATRIX.F8 * 4); m.set([0x00, 0x04, 0, 0x2B], MATRIX.F3 * 4); m.set([0x08, 0x01, 0x03, 0], MATRIX.Up * 4); }
+    state.layers[l] = m;
+  }
+  renderPsd(); renderLed(); renderRgb(); renderTabs(); renderKeyboard(); setButtons();
+}
+
+// ───────────────────────── 事件 ─────────────────────────
+$('btnConnect').onclick = () => guarded(connect);
+$('btnPsd').onclick = () => guarded(readPsd);
+$('btnLed').onclick = () => guarded(readLed);
+$('btnMatrix').onclick = () => guarded(readMatrix);
+$('btnRgb').onclick = () => guarded(readRgb);
+$('btnReadAll').onclick = () => guarded(async () => {
+  if (state.mode === 'wired') await readPsd();
+  await readLed();
+  if (state.mode === 'wired') {
+    try { await readRgb(); } catch (e) { log('er', `颜色表读取失败：${e.message}`); }
+  }
+  await readMatrix();
+});
+$('btnExport').onclick = exportJson;
+$('btnClearLog').onclick = () => { $('log').innerHTML = ''; };
+
+if ('hid' in navigator) {
+  navigator.hid.addEventListener('disconnect', e => {
+    if (e.device === state.dev) {
+      state.dev = null; state.mode = null;
+      setStatus('已断开', false); log('er', '设备已断开'); setButtons();
+    }
+  });
+  navigator.hid.getDevices().then(ds => {
+    const d = ds.find(pickMode);
+    if (d && !state.demo) log('in', `发现之前授权过的设备 ${d.productName}，点击“连接键盘”即可`);
+  });
+}
+
+renderTabs();
+renderKeyboard();
+setButtons();
+if (new URLSearchParams(location.search).has('demo')) loadDemo();
+log('in', '探针就绪。白名单：有线 0x82/0x83/0x84/0x8A，2.4G 0x41/0x44。本页没有任何写入函数。');
+</script>
+</body>
+</html>

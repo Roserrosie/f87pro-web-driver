@@ -1,0 +1,16 @@
+# 本机的 Claude 设置（里面有本机路径）
+.claude/
+
+# 只留在本机的开发笔记：完整逆向记录、给 AI 的交接文档、逆向用的脚本
+# 公开的协议说明在 docs/PROTOCOL.md
+F87PRO-驱动逆向分析.md
+交接文档.md
+tools/*.py
+
+# 反汇编输出、官方程序和说明书（有版权，不放进仓库）
+*.asm
+*.exe
+*.dll
+*.pdf
+
+node_modules/
